@@ -4,24 +4,33 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"benzhi-project-39162b49-a874-41ad-95d1-e3d76a40af9a/internal/domain"
 )
 
 type Service struct {
-	repository Repository
-	checker    SafetyChecker
-	clock      Clock
-	ids        IDGenerator
+	repository        Repository
+	checker           SafetyChecker
+	clock             Clock
+	ids               IDGenerator
+	revisionDiffMu    sync.Mutex
+	revisionDiffCache map[string]revisionDiffCacheEntry
+}
+
+type revisionDiffCacheEntry struct {
+	version int64
+	diffs   []domain.RevisionDiff
 }
 
 func NewService(repository Repository, checker SafetyChecker) *Service {
 	return &Service{
-		repository: repository,
-		checker:    checker,
-		clock:      systemClock{},
-		ids:        RandomIDs{},
+		repository:        repository,
+		checker:           checker,
+		clock:             systemClock{},
+		ids:               RandomIDs{},
+		revisionDiffCache: make(map[string]revisionDiffCacheEntry),
 	}
 }
 
@@ -31,10 +40,25 @@ func NewServiceWithDependencies(repository Repository, checker SafetyChecker, cl
 
 func (s *Service) GetPlan(ctx context.Context, id string) (domain.RiggingPlan, error) {
 	plan, err := s.repository.Get(ctx, strings.TrimSpace(id))
-	if err == nil {
-		plan.RevisionDiffs = plan.BuildRevisionDiffs()
+	if err != nil {
+		return domain.RiggingPlan{}, err
 	}
-	return plan, err
+	plan.RevisionDiffs = s.cachedRevisionDiffs(plan)
+	return plan, nil
+}
+
+func (s *Service) cachedRevisionDiffs(plan domain.RiggingPlan) []domain.RevisionDiff {
+	s.revisionDiffMu.Lock()
+	defer s.revisionDiffMu.Unlock()
+	if cached, ok := s.revisionDiffCache[plan.ID]; ok && cached.version == plan.Version {
+		return cached.diffs
+	}
+	diffs := plan.BuildRevisionDiffs()
+	if s.revisionDiffCache == nil {
+		s.revisionDiffCache = make(map[string]revisionDiffCacheEntry)
+	}
+	s.revisionDiffCache[plan.ID] = revisionDiffCacheEntry{version: plan.Version, diffs: diffs}
+	return diffs
 }
 
 func (s *Service) ListPlans(ctx context.Context) ([]domain.RiggingPlan, error) {
