@@ -50,7 +50,13 @@ func (s *Service) VerifyAuthorization(ctx context.Context, code string) (Authori
 	if !authorizationCodePattern.MatchString(trimmed) {
 		return AuthorizationVerification{Valid: false, AuthorizationCode: trimmed, Reason: "INVALID_FORMAT", Message: "授权码格式无效"}, nil
 	}
-	plan, err := s.repository.FindByAuthorization(ctx, trimmed)
+	s.verificationMu.Lock()
+	if s.verificationContext == nil {
+		s.verificationContext = ctx
+	}
+	verificationContext := s.verificationContext
+	s.verificationMu.Unlock()
+	plan, err := s.repository.FindByAuthorization(verificationContext, trimmed)
 	if err != nil {
 		if err == domain.ErrNotFound {
 			return AuthorizationVerification{Valid: false, AuthorizationCode: trimmed, Reason: "NOT_FOUND", Message: "未找到对应的演出启用单"}, nil
@@ -62,7 +68,7 @@ func (s *Service) VerifyAuthorization(ctx context.Context, code string) (Authori
 		if !ok {
 			return AuthorizationVerification{}, fmt.Errorf("仓储不支持读取冻结修订")
 		}
-		persistedRevision, revisionErr := filtered.GetRevision(ctx, plan.ID, plan.CurrentRevision)
+		persistedRevision, revisionErr := filtered.GetRevision(verificationContext, plan.ID, plan.CurrentRevision)
 		if revisionErr != nil {
 			if revisionErr == domain.ErrNotFound {
 				return authorizationResult(plan, trimmed, domain.AuthorizationVerification{Reason: "REVISION_MISSING", Message: "冻结修订不存在"}), nil
