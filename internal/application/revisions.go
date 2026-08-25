@@ -36,5 +36,5 @@ func (s *Service) SubmitRevision(ctx context.Context, command SubmitRevisionComm
 		return domain.RiggingPlan{}, err
 	}
 	plan.Version++
-	return s.repository.Update(ctx, plan, command.Version, s.requestKey(command.RequestKey))
+	return s.repository.Update(commitContext(ctx), plan, command.Version, s.requestKey(command.RequestKey))
 }

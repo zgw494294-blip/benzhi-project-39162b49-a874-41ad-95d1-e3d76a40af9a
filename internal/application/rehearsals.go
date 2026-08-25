@@ -45,5 +45,5 @@ func (s *Service) RecordRehearsal(ctx context.Context, command RecordRehearsalCo
 		return domain.RiggingPlan{}, err
 	}
 	plan.Version++
-	return s.repository.Update(ctx, plan, command.Version, s.requestKey(command.RequestKey))
+	return s.repository.Update(commitContext(ctx), plan, command.Version, s.requestKey(command.RequestKey))
 }

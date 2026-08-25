@@ -96,6 +96,13 @@ func (s *Service) requestKey(value string) string {
 	return s.ids.NewID()
 }
 
+func commitContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		return context.Background()
+	}
+	return context.WithoutCancel(ctx)
+}
+
 func (s *Service) replay(ctx context.Context, requestKey string) (domain.RiggingPlan, bool, error) {
 	if strings.TrimSpace(requestKey) == "" {
 		return domain.RiggingPlan{}, false, nil

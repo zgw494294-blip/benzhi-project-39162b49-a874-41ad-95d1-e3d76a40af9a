@@ -32,5 +32,5 @@ func (s *Service) RunChecks(ctx context.Context, command RunChecksCommand) (doma
 		return domain.RiggingPlan{}, err
 	}
 	plan.Version++
-	return s.repository.Update(ctx, plan, command.Version, s.requestKey(command.RequestKey))
+	return s.repository.Update(commitContext(ctx), plan, command.Version, s.requestKey(command.RequestKey))
 }

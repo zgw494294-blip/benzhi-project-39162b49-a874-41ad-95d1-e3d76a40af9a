@@ -42,7 +42,7 @@ func (s *Service) DecideReview(ctx context.Context, command DecideReviewCommand)
 		return domain.RiggingPlan{}, err
 	}
 	plan.Version++
-	return s.repository.Update(ctx, plan, command.Version, s.requestKey(command.RequestKey))
+	return s.repository.Update(commitContext(ctx), plan, command.Version, s.requestKey(command.RequestKey))
 }
 
 func (s *Service) VerifyAuthorization(ctx context.Context, code string) (AuthorizationVerification, error) {
