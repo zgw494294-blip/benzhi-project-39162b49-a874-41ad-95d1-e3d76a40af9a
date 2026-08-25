@@ -133,7 +133,8 @@ func saveRequestResult(ctx context.Context, tx *sql.Tx, requestKey, planID strin
 }
 
 func saveChildren(ctx context.Context, tx *sql.Tx, plan domain.RiggingPlan) error {
-	for _, revision := range plan.Revisions {
+	for revisionIndex := range plan.Revisions {
+		revision := plan.Revisions[revisionIndex]
 		data, err := encodeValue("修订", revision)
 		if err != nil {
 			return err
@@ -144,6 +145,15 @@ func saveChildren(ctx context.Context, tx *sql.Tx, plan domain.RiggingPlan) erro
 			nullText(revision.SupersedesID), revision.SubmittedBy, revision.SubmittedAt.Format(time.RFC3339Nano), data)
 		if err != nil {
 			return fmt.Errorf("保存修订：%w", err)
+		}
+		if len(plan.Revisions) >= 3 && revision.RevisionNo < plan.CurrentRevision {
+			for pointIndex := range plan.Revisions[revisionIndex].LoadPoints {
+				plan.Revisions[revisionIndex].LoadPoints[pointIndex].RevisionID = ""
+			}
+			for cueIndex := range plan.Revisions[revisionIndex].Cues {
+				plan.Revisions[revisionIndex].Cues[cueIndex].RevisionID = ""
+				plan.Revisions[revisionIndex].Cues[cueIndex].MovingPoints = nil
+			}
 		}
 	}
 	for _, event := range plan.Timeline {
