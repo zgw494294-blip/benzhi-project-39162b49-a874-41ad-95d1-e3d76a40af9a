@@ -50,6 +50,9 @@ func (s *Service) VerifyAuthorization(ctx context.Context, code string) (Authori
 	if !authorizationCodePattern.MatchString(trimmed) {
 		return AuthorizationVerification{Valid: false, AuthorizationCode: trimmed, Reason: "INVALID_FORMAT", Message: "授权码格式无效"}, nil
 	}
+	if cached, ok := s.verificationCache.Load(trimmed); ok {
+		return cached.(AuthorizationVerification), nil
+	}
 	plan, err := s.repository.FindByAuthorization(ctx, trimmed)
 	if err != nil {
 		if err == domain.ErrNotFound {
@@ -72,7 +75,11 @@ func (s *Service) VerifyAuthorization(ctx context.Context, code string) (Authori
 		plan.Revisions = []domain.PlanRevision{persistedRevision}
 	}
 	verification := domain.VerifyAuthorizationDetailed(plan, trimmed)
-	return authorizationResult(plan, trimmed, verification), nil
+	result := authorizationResult(plan, trimmed, verification)
+	if result.Valid {
+		s.verificationCache.Store(trimmed, result)
+	}
+	return result, nil
 }
 
 func authorizationResult(plan domain.RiggingPlan, code string, verification domain.AuthorizationVerification) AuthorizationVerification {

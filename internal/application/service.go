@@ -4,16 +4,18 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"benzhi-project-39162b49-a874-41ad-95d1-e3d76a40af9a/internal/domain"
 )
 
 type Service struct {
-	repository Repository
-	checker    SafetyChecker
-	clock      Clock
-	ids        IDGenerator
+	repository        Repository
+	checker           SafetyChecker
+	clock             Clock
+	ids               IDGenerator
+	verificationCache sync.Map
 }
 
 func NewService(repository Repository, checker SafetyChecker) *Service {
