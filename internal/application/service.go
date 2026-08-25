@@ -2,8 +2,10 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"benzhi-project-39162b49-a874-41ad-95d1-e3d76a40af9a/internal/domain"
@@ -14,6 +16,8 @@ type Service struct {
 	checker    SafetyChecker
 	clock      Clock
 	ids        IDGenerator
+	queryMu    sync.RWMutex
+	queryCache map[string][]byte
 }
 
 func NewService(repository Repository, checker SafetyChecker) *Service {
@@ -22,11 +26,12 @@ func NewService(repository Repository, checker SafetyChecker) *Service {
 		checker:    checker,
 		clock:      systemClock{},
 		ids:        RandomIDs{},
+		queryCache: make(map[string][]byte),
 	}
 }
 
 func NewServiceWithDependencies(repository Repository, checker SafetyChecker, clock Clock, ids IDGenerator) *Service {
-	return &Service{repository: repository, checker: checker, clock: clock, ids: ids}
+	return &Service{repository: repository, checker: checker, clock: clock, ids: ids, queryCache: make(map[string][]byte)}
 }
 
 func (s *Service) GetPlan(ctx context.Context, id string) (domain.RiggingPlan, error) {
@@ -50,11 +55,30 @@ func (s *Service) ListPlansFiltered(ctx context.Context, query PlanListQuery) (P
 	if !ok {
 		return PlanListResult{}, fmt.Errorf("仓储不支持方案筛选")
 	}
+	cacheKey := fmt.Sprintf("%s|%s|%s|%s", filter.State, filter.VenueKeyword, filter.PerformanceDateFrom, filter.PerformanceDateTo)
+	s.queryMu.RLock()
+	cached, found := s.queryCache[cacheKey]
+	s.queryMu.RUnlock()
+	if found {
+		var result PlanListResult
+		if err := json.Unmarshal(cached, &result); err != nil {
+			return PlanListResult{}, fmt.Errorf("解析方案查询缓存：%w", err)
+		}
+		return result, nil
+	}
 	plans, counts, err := filtered.ListFiltered(ctx, filter)
 	if err != nil {
 		return PlanListResult{}, err
 	}
-	return PlanListResult{Plans: plans, StateCounts: counts}, nil
+	result := PlanListResult{Plans: plans, StateCounts: counts}
+	data, err := json.Marshal(result)
+	if err != nil {
+		return PlanListResult{}, fmt.Errorf("序列化方案查询缓存：%w", err)
+	}
+	s.queryMu.Lock()
+	s.queryCache[cacheKey] = data
+	s.queryMu.Unlock()
+	return result, nil
 }
 
 func validatePlanListQuery(query PlanListQuery) (domain.PlanListFilter, error) {
