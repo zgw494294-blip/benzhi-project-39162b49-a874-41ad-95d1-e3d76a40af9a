@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>舞台吊挂安全启用工作台</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <header class="masthead">
+    <div class="masthead__shade"></div>
+    <div class="masthead__content">
+      <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div>
+        <p class="eyebrow">RIGGING / AUTHORIZATION CONTROL</p>
+        <h1>舞台吊挂安全启用工作台</h1>
+      </div>
+      <div class="service-state"><i></i> 审计服务在线</div>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="plan-rail" aria-label="吊挂方案">
+      <div class="rail-heading">
+        <div><p class="eyebrow">方案库</p><h2>启用流程</h2></div>
+        <button class="icon-button" id="refresh-plans" type="button" title="刷新方案" aria-label="刷新方案">↻</button>
+      </div>
+      <button class="primary-button full" id="new-plan" type="button"><span aria-hidden="true">＋</span> 新建吊挂方案</button>
+      <form id="plan-filter" class="plan-filter">
+        <label>状态<select name="state"><option value="">全部状态</option><option value="DRAFT">草拟待校核</option><option value="CHECK_BLOCKED">校核阻断</option><option value="REHEARSAL_READY">联排就绪</option><option value="REMEDIATION_REQUIRED">需要整改</option><option value="REVIEW_PENDING">等待独立评审</option><option value="AUTHORIZED">已启用</option></select></label>
+        <label>场地<input name="venue" placeholder="场地关键词"></label>
+        <div class="filter-dates"><label>演出日期从<input name="performanceDateFrom" type="date"></label><label>至<input name="performanceDateTo" type="date"></label></div>
+        <div class="filter-actions"><button class="secondary-button compact" type="reset">清除</button><button class="primary-button compact" type="submit">筛选</button></div>
+      </form>
+      <div id="state-counts" class="state-counts" aria-live="polite"></div>
+      <nav id="plan-list" class="plan-list" aria-live="polite"></nav>
+      <form id="verify-form" class="verify-box">
+        <label for="authorization-code">验证演出启用单</label>
+        <div class="inline-control">
+          <input id="authorization-code" name="code" placeholder="RIG-XXXXX-..." autocomplete="off">
+          <button class="icon-button dark" type="submit" title="验证授权码" aria-label="验证授权码">→</button>
+        </div>
+        <output id="verify-result"></output>
+      </form>
+    </aside>
+
+    <section class="content" id="content">
+      <div id="empty-state" class="empty-state">
+        <div class="empty-diagram" aria-hidden="true"><span></span><span></span><span></span></div>
+        <p class="eyebrow">未选择方案</p>
+        <h2>从左侧建立或选择吊挂方案</h2>
+        <p>载荷、动作、联排证据和独立评审将进入同一条审计时间线。</p>
+      </div>
+
+      <div id="plan-view" hidden>
+        <section class="plan-header">
+          <div>
+            <div class="header-meta"><span id="plan-state" class="state-pill"></span><span id="plan-revision"></span></div>
+            <h2 id="plan-title"></h2>
+            <p id="plan-context"></p>
+          </div>
+          <div class="version-block"><span>并发版本</span><strong id="plan-version"></strong></div>
+        </section>
+
+        <section class="action-strip" aria-label="当前可执行操作">
+          <div><p class="eyebrow">下一控制点</p><strong id="next-action"></strong></div>
+          <div class="action-buttons">
+            <button class="primary-button" id="run-checks" type="button" hidden><span aria-hidden="true">✓</span> 执行安全校核</button>
+            <button class="secondary-button" id="open-revision" type="button" hidden><span aria-hidden="true">＋</span> 提交整改修订</button>
+            <button class="primary-button" id="open-rehearsal" type="button" hidden>记录技术联排</button>
+            <button class="primary-button" id="open-review" type="button" hidden>执行独立评审</button>
+          </div>
+        </section>
+
+        <div class="metric-grid" id="metrics"></div>
+
+        <div class="tabs" role="tablist" aria-label="方案视图">
+          <button role="tab" aria-selected="true" data-tab="revision" type="button">当前修订</button>
+          <button role="tab" aria-selected="false" data-tab="checks" type="button">校核结果</button>
+          <button role="tab" aria-selected="false" data-tab="rehearsal" type="button">联排与评审</button>
+          <button role="tab" aria-selected="false" data-tab="timeline" type="button">审计时间线</button>
+        </div>
+
+        <section class="tab-panel" data-panel="revision">
+          <div class="section-heading"><div><p class="eyebrow">LOAD SCHEDULE</p><h3>吊点载荷</h3></div></div>
+          <div class="table-wrap"><table><thead><tr><th>吊点</th><th>位置</th><th>额定能力</th><th>计划载荷</th><th>角度</th><th>声明安全系数</th></tr></thead><tbody id="load-table"></tbody></table></div>
+          <div class="section-heading offset"><div><p class="eyebrow">MOVEMENT SEQUENCE</p><h3>换景动作序列</h3></div></div>
+          <div class="table-wrap"><table><thead><tr><th>动作</th><th>时间窗</th><th>参与吊点</th><th>净空</th><th>操作员</th></tr></thead><tbody id="cue-table"></tbody></table></div>
+          <details class="revision-history"><summary>历史修订与替代关系</summary><div id="revision-history"></div></details>
+        </section>
+
+        <section class="tab-panel" data-panel="checks" hidden>
+          <div class="section-heading"><div><p class="eyebrow">DETERMINISTIC CHECKS</p><h3>当前修订校核结果</h3></div><span id="check-summary"></span></div>
+          <div id="finding-list" class="finding-list"></div>
+        </section>
+
+        <section class="tab-panel" data-panel="rehearsal" hidden>
+          <div class="split-band">
+            <div><p class="eyebrow">TECHNICAL REHEARSAL</p><h3>联排记录</h3><div id="rehearsal-list"></div></div>
+            <div><p class="eyebrow">INDEPENDENT REVIEW</p><h3>安全评审</h3><div id="review-list"></div></div>
+          </div>
+          <div id="authorization-panel" class="authorization-panel" hidden></div>
+        </section>
+
+        <section class="tab-panel" data-panel="timeline" hidden>
+          <div class="section-heading"><div><p class="eyebrow">AUDIT TRAIL</p><h3>状态与证据时间线</h3></div></div>
+          <ol id="timeline" class="timeline"></ol>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="plan-dialog">
+    <form id="plan-form" class="dialog-form">
+      <header><div><p class="eyebrow" id="form-mode">NEW PLAN</p><h2 id="form-title">建立吊挂方案</h2></div><button class="icon-button" data-close type="button" aria-label="关闭">×</button></header>
+      <div id="plan-fields" class="form-grid">
+        <label>方案名称*<input name="title" required placeholder="例如：第三幕飞景系统"></label>
+        <label>演出场地*<input name="venue" required placeholder="例如：实验剧场主舞台"></label>
+        <label>演出日期*<input name="performanceDate" type="date" required></label>
+        <label>技术负责人*<input name="owner" required placeholder="姓名或工号"></label>
+      </div>
+      <div class="form-grid">
+        <label>修订原因*<input name="changeReason" required placeholder="首版提交 / 整改说明"></label>
+        <label>方案提交者*<input name="submittedBy" required placeholder="必须与最终评审员不同"></label>
+      </div>
+      <div class="editor-heading"><div><p class="eyebrow">LOAD POINTS</p><h3>吊点载荷</h3></div><button class="secondary-button compact" id="add-load" type="button">＋ 吊点</button></div>
+      <div id="load-editor" class="row-editor"></div>
+      <div class="editor-heading"><div><p class="eyebrow">MOVEMENT CUES</p><h3>动作序列</h3></div><button class="secondary-button compact" id="add-cue" type="button">＋ 动作</button></div>
+      <div id="cue-editor" class="row-editor"></div>
+      <div class="form-feedback" id="plan-feedback" role="alert"></div>
+      <footer><button class="secondary-button" data-close type="button">取消</button><button class="primary-button" id="save-plan" type="submit">提交方案</button></footer>
+    </form>
+  </dialog>
+
+  <dialog id="rehearsal-dialog">
+    <form id="rehearsal-form" class="dialog-form small">
+      <header><div><p class="eyebrow">TECHNICAL REHEARSAL</p><h2>记录技术联排</h2></div><button class="icon-button" data-close type="button" aria-label="关闭">×</button></header>
+      <label>现场监督员*<input name="observer" required></label>
+      <fieldset><legend>联排结论*</legend><label class="choice"><input type="radio" name="outcome" value="PASSED" checked> 通过，进入独立评审</label><label class="choice"><input type="radio" name="outcome" value="BLOCKED"> 阻断，需要整改</label></fieldset>
+      <label>现场观察<textarea name="observations" rows="4" placeholder="记录运行状态、异常和处置"></textarea></label>
+      <label>证据引用<input name="evidenceRefs" placeholder="视频编号、检查表编号，以逗号分隔"></label>
+      <div class="form-feedback" id="rehearsal-feedback" role="alert"></div>
+      <footer><button class="secondary-button" data-close type="button">取消</button><button class="primary-button" type="submit">保存联排记录</button></footer>
+    </form>
+  </dialog>
+
+  <dialog id="review-dialog">
+    <form id="review-form" class="dialog-form small">
+      <header><div><p class="eyebrow">SAFETY REVIEW</p><h2>独立安全评审</h2></div><button class="icon-button" data-close type="button" aria-label="关闭">×</button></header>
+      <label>独立评审员*<input name="reviewer" required placeholder="不能与当前修订提交者相同"></label>
+      <fieldset><legend>评审决定*</legend><label class="choice"><input type="radio" name="decision" value="APPROVED" checked> 通过并冻结启用单</label><label class="choice"><input type="radio" name="decision" value="REJECTED"> 退回整改</label></fieldset>
+      <label>评审意见<textarea name="comment" rows="4"></textarea></label>
+      <div class="form-feedback" id="review-feedback" role="alert"></div>
+      <footer><button class="secondary-button" data-close type="button">取消</button><button class="primary-button" type="submit">提交评审决定</button></footer>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/assets/app.js" defer></script>
+</body>
+</html>
