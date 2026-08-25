@@ -10,10 +10,16 @@ import (
 )
 
 type Service struct {
-	repository Repository
-	checker    SafetyChecker
-	clock      Clock
-	ids        IDGenerator
+	repository  Repository
+	checker     SafetyChecker
+	clock       Clock
+	ids         IDGenerator
+	listFilters []cachedPlanListFilter
+}
+
+type cachedPlanListFilter struct {
+	query  PlanListQuery
+	filter domain.PlanListFilter
 }
 
 func NewService(repository Repository, checker SafetyChecker) *Service {
@@ -42,7 +48,7 @@ func (s *Service) ListPlans(ctx context.Context) ([]domain.RiggingPlan, error) {
 }
 
 func (s *Service) ListPlansFiltered(ctx context.Context, query PlanListQuery) (PlanListResult, error) {
-	filter, err := validatePlanListQuery(query)
+	filter, err := s.planListFilter(query)
 	if err != nil {
 		return PlanListResult{}, err
 	}
@@ -55,6 +61,20 @@ func (s *Service) ListPlansFiltered(ctx context.Context, query PlanListQuery) (P
 		return PlanListResult{}, err
 	}
 	return PlanListResult{Plans: plans, StateCounts: counts}, nil
+}
+
+func (s *Service) planListFilter(query PlanListQuery) (domain.PlanListFilter, error) {
+	for _, cached := range s.listFilters {
+		if cached.query == query {
+			return cached.filter, nil
+		}
+	}
+	filter, err := validatePlanListQuery(query)
+	if err != nil {
+		return domain.PlanListFilter{}, err
+	}
+	s.listFilters = append(s.listFilters, cachedPlanListFilter{query: query, filter: filter})
+	return filter, nil
 }
 
 func validatePlanListQuery(query PlanListQuery) (domain.PlanListFilter, error) {
