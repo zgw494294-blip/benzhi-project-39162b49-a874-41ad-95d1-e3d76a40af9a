@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"benzhi-project-39162b49-a874-41ad-95d1-e3d76a40af9a/internal/domain"
@@ -36,5 +37,9 @@ func (s *Service) SubmitRevision(ctx context.Context, command SubmitRevisionComm
 		return domain.RiggingPlan{}, err
 	}
 	plan.Version++
-	return s.repository.Update(ctx, plan, command.Version, s.requestKey(command.RequestKey))
+	updated, err := s.repository.Update(ctx, plan, command.Version, s.requestKey(command.RequestKey))
+	if err != nil {
+		return domain.RiggingPlan{}, fmt.Errorf("保存方案修订：%v", err)
+	}
+	return updated, nil
 }

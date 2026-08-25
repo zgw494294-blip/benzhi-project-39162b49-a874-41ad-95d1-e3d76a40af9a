@@ -41,7 +41,11 @@ func (s *Service) CreatePlan(ctx context.Context, command CreatePlanCommand) (do
 		Summary: fmt.Sprintf("建立吊挂方案：%s / %s", plan.Venue, plan.PerformanceDate),
 		State:   plan.State, OccurredAt: now,
 	})
-	return s.repository.Create(ctx, plan, s.requestKey(command.RequestKey))
+	created, err := s.repository.Create(ctx, plan, s.requestKey(command.RequestKey))
+	if err != nil {
+		return domain.RiggingPlan{}, fmt.Errorf("持久化新方案：%v", err)
+	}
+	return created, nil
 }
 
 func validateCreatePlan(command CreatePlanCommand) error {

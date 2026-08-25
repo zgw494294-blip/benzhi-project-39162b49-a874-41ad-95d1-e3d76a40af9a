@@ -100,5 +100,9 @@ func (s *Service) replay(ctx context.Context, requestKey string) (domain.Rigging
 	if strings.TrimSpace(requestKey) == "" {
 		return domain.RiggingPlan{}, false, nil
 	}
-	return s.repository.Replay(ctx, strings.TrimSpace(requestKey))
+	plan, ok, err := s.repository.Replay(ctx, strings.TrimSpace(requestKey))
+	if err != nil {
+		return domain.RiggingPlan{}, false, fmt.Errorf("读取请求重放结果：%v", err)
+	}
+	return plan, ok, nil
 }

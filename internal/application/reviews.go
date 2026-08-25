@@ -42,7 +42,11 @@ func (s *Service) DecideReview(ctx context.Context, command DecideReviewCommand)
 		return domain.RiggingPlan{}, err
 	}
 	plan.Version++
-	return s.repository.Update(ctx, plan, command.Version, s.requestKey(command.RequestKey))
+	updated, err := s.repository.Update(ctx, plan, command.Version, s.requestKey(command.RequestKey))
+	if err != nil {
+		return domain.RiggingPlan{}, fmt.Errorf("保存评审决定：%v", err)
+	}
+	return updated, nil
 }
 
 func (s *Service) VerifyAuthorization(ctx context.Context, code string) (AuthorizationVerification, error) {
